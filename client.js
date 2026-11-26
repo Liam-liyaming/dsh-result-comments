@@ -868,8 +868,12 @@ window.__ModuleLoader__.load({
         })
         document.addEventListener('scroll', schedule, true)
         window.addEventListener('resize', schedule)
+        // Layout changes from switching panels or sessions do not always emit scroll or
+        // resize; a light tick keeps the parked badges in sync with the transcript band.
+        const tick = setInterval(schedule, 1000)
         return () => {
           if (frame !== undefined) cancelAnimationFrame(frame)
+          clearInterval(tick)
           unsubscribeMarkers()
           unsubscribeStore()
           document.removeEventListener('scroll', schedule, true)
