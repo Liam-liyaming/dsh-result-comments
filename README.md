@@ -2,6 +2,8 @@
 
 框选 AI 回复里的一段话，点 👍 认可，或点 🤔 我有话说写一句评论；评论会变成输入框里的 tag，跟你自己的消息一起发送。
 
+源码与问题反馈：[github.com/Liam-liyaming/dsh-result-comments](https://github.com/Liam-liyaming/dsh-result-comments)。
+
 ## 使用
 
 1. **框选文字**：在 AI 回复里选中一段内容，松开后浮条只给出两个方向：`👍` 和 `🤔 我有话说`。

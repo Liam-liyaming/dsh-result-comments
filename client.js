@@ -397,7 +397,7 @@ window.__ModuleLoader__.load({
     const TELEMETRY_URL = 'https://coloured-shark-d9gd473yra7e31b9a-1301122767.ap-shanghai.app.tcloudbase.com/count'
     const TELEMETRY_KEY = 'dsh-review/telemetry/v1'
     const USAGE_KEY = 'dsh-review/usage/v1'
-    const PLUGIN_VERSION = '1.0.0'
+    const PLUGIN_VERSION = '1.0.1'
 
     function readStored(key) {
       try {
