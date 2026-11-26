@@ -31,7 +31,7 @@ plugin_manager install_bundle target: <本目录>
 
 > 首次发布会进入 npm 的 **staged publishing**：注册表先出现 `0.0.0-stage` 占位，真正的版本在暂存队列，需要用 2FA 在 npmjs.com 的 **Staged Packages**（账号设置）或包的 **Versions** 标签里批准。`1.0.0` 已发布成功，后续发版仍可能触发暂存，按控制台提示批准即可。
 
-- `package.json` 当前版本 `1.0.1`（1.0.0 为首发，1.0.1 补 repository 关联）；
+- `package.json` 当前版本 `1.1.0`（1.0.0 首发，1.0.1 补仓库关联，1.1.0 徽标改为停靠边界 + 点击定位 + hover 卡片）；
 - 同版本号必须与 `client.js` 里的 `PLUGIN_VERSION` 一致（统计上报用）；
 - 确认 `npm whoami` 已登录，然后：
 
@@ -44,6 +44,6 @@ npm publish --access public
 ## 4. 隐私检查
 
 - payload 只含 `v / event / id / version / locale`；
-- 默认关闭，面板可开关；
+- **默认开启**，面板可一键关闭，关闭后不再上报；
 - README 与插件详情页已披露统计范围；
 - 不要把 Worker 的 KV 写权限或任何密钥放进插件代码。

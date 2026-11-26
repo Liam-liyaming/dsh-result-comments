@@ -397,7 +397,7 @@ window.__ModuleLoader__.load({
     const TELEMETRY_URL = 'https://coloured-shark-d9gd473yra7e31b9a-1301122767.ap-shanghai.app.tcloudbase.com/count'
     const TELEMETRY_KEY = 'dsh-review/telemetry/v1'
     const USAGE_KEY = 'dsh-review/usage/v1'
-    const PLUGIN_VERSION = '1.0.1'
+    const PLUGIN_VERSION = '1.1.0'
 
     function readStored(key) {
       try {
@@ -643,19 +643,31 @@ window.__ModuleLoader__.load({
     function createMarkers() {
       const entries = new Map()
       const listeners = new Set()
+      let isSuppressed = false
       const emit = () => {
         syncHighlights(entries)
         for (const listener of [...listeners]) listener()
       }
       return {
         get() { return entries },
+        /** True while a text-selection surface is open: the badges would paint over it. */
+        get suppressed() { return isSuppressed },
+        setSuppressed(value) {
+          const next = Boolean(value)
+          if (isSuppressed === next) return
+          isSuppressed = next
+          for (const listener of [...listeners]) listener()
+        },
         subscribe(listener) {
           listeners.add(listener)
           return () => { listeners.delete(listener) }
         },
         has(id) {
           const entry = entries.get(id)
-          return entry !== undefined && entry.range.startContainer.isConnected
+          if (entry === undefined || !entry.range.startContainer.isConnected) return false
+          const live = entry.range.toString().replace(/\s+/gu, '')
+          const probe = String(entry.text).replace(/\s+/gu, '').slice(0, 24)
+          return probe === '' || live.includes(probe)
         },
         set(id, range, record) {
           if (range === null || range === undefined || range.startContainer === null
@@ -663,6 +675,7 @@ window.__ModuleLoader__.load({
             || !range.startContainer.isConnected || !range.endContainer.isConnected) return false
           entries.set(id, {
             range, level: record.level, comment: record.comment, text: record.text,
+            sessionId: record.sessionId,
           })
           emit()
           return true
@@ -670,10 +683,13 @@ window.__ModuleLoader__.load({
         delete(id) {
           if (entries.delete(id)) emit()
         },
+        refresh() {
+          syncHighlights(entries)
+        },
         prune() {
           let changed = false
-          for (const [id, entry] of entries) {
-            if (!entry.range.startContainer.isConnected) {
+          for (const [id] of entries) {
+            if (!this.has(id)) {
               entries.delete(id)
               changed = true
             }
@@ -765,35 +781,54 @@ window.__ModuleLoader__.load({
      * floats the level emoji at the end of each marked selection.
      * @param props - locale, registry, store, and the panel opener.
      */
+    /**
+     * Inline mark badges: each badge rides the right corner of its marked line, and when
+     * that line scrolls out of the transcript band the badge stays parked on the band's
+     * edge instead of disappearing.
+     */
     function ReviewMarkerLayer(props) {
-      const { t, markers, store, openPanel } = props
+      const { t, markers, store } = props
       useMarkerVersion(markers)
-      const [positions, setPositions] = useState([])
+      const [view, setView] = useState({ items: [] })
+      const [hovered, setHovered] = useState(null)
 
       useEffect(() => {
         let frame
         let lastKey = ''
+        const clear = () => {
+          if (lastKey === '') return
+          lastKey = ''
+          setView({ items: [] })
+        }
         const update = () => {
           frame = undefined
-          markers.prune()
+          // A selection surface lives in the Chat column; this layer rides the frame
+          // overlay, so it can only get out of the way instead of outranking it.
+          if (markers.suppressed) { clear(); return }
           const scroll = document.querySelector('[data-conversation-scroll]')
-          const scrollRect = scroll === null ? null : scroll.getBoundingClientRect()
+          if (scroll === null) { clear(); return }
+          const rect = scroll.getBoundingClientRect()
           const composer = document.querySelector('[data-composer-seat]')
-          const composerRect = composer === null ? null : composer.getBoundingClientRect()
-          const left = Math.max(0, scrollRect === null ? 0 : scrollRect.left)
-          const right = Math.min(window.innerWidth, scrollRect === null ? window.innerWidth : scrollRect.right)
-          const top = Math.max(0, scrollRect === null ? 0 : scrollRect.top)
-          const bottom = Math.min(
+          const floor = Math.min(
             window.innerHeight,
-            scrollRect === null ? window.innerHeight : scrollRect.bottom,
-            composerRect !== null && composerRect.height > 0 ? composerRect.top : window.innerHeight,
+            rect.bottom,
+            composer === null ? window.innerHeight : composer.getBoundingClientRect().top,
           )
-          if (right <= left || bottom <= top) {
-            if (lastKey !== '') { lastKey = ''; setPositions([]) }
-            return
-          }
-          const next = []
+          // Badges park inside this band: they never ride over the tabs above it, and
+          // never over the composer below it.
+          const ceiling = rect.top + 26
+          if (floor <= ceiling) { clear(); return }
+          // The layer belongs to the conversation on screen: markers from another
+          // session are dropped rather than shown next to this one's marks.
+          const owner = document.querySelector('[data-conversation-content]')
+            ?.getAttribute('data-conversation-session') ?? ''
+          const items = []
+          const foreign = []
           for (const [id, entry] of markers.get()) {
+            if (owner !== '' && entry.sessionId !== undefined && entry.sessionId !== owner) {
+              foreign.push(id)
+              continue
+            }
             const range = entry.range
             if (!range.startContainer.isConnected || !range.endContainer.isConnected) continue
             const rects = range.getClientRects()
@@ -803,20 +838,21 @@ window.__ModuleLoader__.load({
               if (rects[index].width > 0 && rects[index].height > 0) { anchor = rects[index]; break }
             }
             if (anchor === null) continue
-            if (anchor.bottom < top || anchor.top > bottom || anchor.right < left || anchor.left > right) continue
-            next.push({
+            items.push({
               id,
               level: entry.level,
               comment: entry.comment,
               text: entry.text,
-              top: Math.max(top + 24, Math.min(bottom - 4, anchor.top - 1)),
-              left: Math.max(left, Math.min(right - 26, anchor.right - 6)),
+              top: Math.max(ceiling, Math.min(floor - 2, anchor.top - 1)),
+              left: Math.max(rect.left + 4, Math.min(rect.right - 26, anchor.right - 6)),
             })
           }
-          const key = next.map(position => `${position.id}:${Math.round(position.top)}:${Math.round(position.left)}`).join('|')
+          for (const id of foreign) markers.delete(id)
+          const key = `${Math.round(ceiling)}:${Math.round(floor)}:`
+            + items.map(item => `${item.id}:${Math.round(item.top)}:${Math.round(item.left)}`).join(',')
           if (key === lastKey) return
           lastKey = key
-          setPositions(next)
+          setView({ items })
         }
         const schedule = () => {
           if (frame === undefined) frame = requestAnimationFrame(update)
@@ -832,11 +868,8 @@ window.__ModuleLoader__.load({
         })
         document.addEventListener('scroll', schedule, true)
         window.addEventListener('resize', schedule)
-        // Safety net for layout changes no scroll event reports (session switch, panels).
-        const tick = setInterval(schedule, 1200)
         return () => {
           if (frame !== undefined) cancelAnimationFrame(frame)
-          clearInterval(tick)
           unsubscribeMarkers()
           unsubscribeStore()
           document.removeEventListener('scroll', schedule, true)
@@ -844,28 +877,73 @@ window.__ModuleLoader__.load({
         }
       }, [markers, store])
 
-      const badges = positions.map((position) => {
-        const level = levelOf(position.level) ?? LEVELS[0]
-        const label = [
-          t(`level.${position.level}`),
-          position.comment,
-          position.text === undefined ? '' : snippet(position.text, 24),
-        ].filter(part => part !== undefined && part !== '').join(' · ')
+      const { items } = view
+      const active = hovered === null ? null : items.find(item => item.id === hovered) ?? null
+      if (items.length === 0) return h(Styles)
+
+      /** Centre the transcript on one mark; the badge itself may be parked on a band edge. */
+      const jumpTo = (id) => {
+        const entry = markers.get().get(id)
+        const scroll = document.querySelector('[data-conversation-scroll]')
+        if (entry === undefined || scroll === null) return
+        let rect = null
+        try { rect = entry.range.getBoundingClientRect() } catch { rect = null }
+        if (rect === null || (rect.width === 0 && rect.height === 0)) {
+          const node = entry.range.startContainer
+          const host = node.nodeType === 1 ? node : node.parentElement
+          if (host === null) return
+          rect = host.getBoundingClientRect()
+        }
+        const box = scroll.getBoundingClientRect()
+        const target = scroll.scrollTop + (rect.top - box.top) - (box.height / 2) + (rect.height / 2)
+        setHovered(null)
+        try {
+          scroll.scrollTo({ top: Math.max(0, target), behavior: 'smooth' })
+        } catch {
+          scroll.scrollTop = Math.max(0, target)
+        }
+      }
+
+      const badges = items.map((item) => {
+        const level = levelOf(item.level) ?? LEVELS[0]
+        const label = [t(`level.${item.level}`), item.comment]
+          .filter(part => part !== undefined && part !== '').join(' · ')
         return h('button', {
-          key: position.id,
+          key: item.id,
           type: 'button',
-          className: 'dsr-mark',
+          className: 'dsr-mark dsr-mark--float',
           style: {
-            top: `${position.top}px`,
-            left: `${position.left}px`,
+            top: `${item.top}px`,
+            left: `${item.left}px`,
             '--dsr-level-color': level.color,
           },
           title: label,
           'aria-label': label,
-          onClick: () => { openPanel() },
+          onMouseEnter: () => { setHovered(item.id) },
+          onFocus: () => { setHovered(item.id) },
+          onMouseLeave: () => { setHovered(null) },
+          onClick: () => { jumpTo(item.id) },
         }, level.emoji)
       })
-      return h(React.Fragment, null, h(Styles), badges)
+
+      const card = active === null ? null : h('div', {
+        className: 'dsr-tip',
+        role: 'tooltip',
+        style: {
+          top: `${Math.min(active.top + 8, window.innerHeight - 24)}px`,
+          left: `${Math.max(8, active.left - 10)}px`,
+        },
+      },
+      h('div', { className: 'dsr-tip-head' }, t(`level.${active.level}`)),
+      active.text === undefined ? null
+        : h('blockquote', { className: 'dsr-tip-quote' }, snippet(active.text, 160)),
+      active.comment === undefined || active.comment === '' ? null
+        : h('p', { className: 'dsr-tip-comment' }, active.comment))
+
+      return h(React.Fragment, null,
+        h(Styles),
+        h('div', { className: 'dsr-marks' }, badges),
+        card)
     }
 
     /** Newest Turn that already produced an answer; a still-running Turn does not count. */
@@ -939,8 +1017,14 @@ window.__ModuleLoader__.load({
   text-underline-offset: 3px;
 }
 
+/* Mark badges. They ride the frame-level overlay slot, which sits above the Chat
+   column — so while a selection surface is open the badges step aside instead of
+   trying to outrank it with z-index. */
+.dsr-marks {
+  position: fixed; inset: 0; z-index: 5; pointer-events: none;
+}
 .dsr-mark {
-  position: fixed; z-index: 5; pointer-events: auto; cursor: pointer;
+  flex: none; cursor: pointer;
   display: grid; place-items: center;
   width: 22px; height: 22px; padding: 0;
   border-radius: 999px;
@@ -948,11 +1032,32 @@ window.__ModuleLoader__.load({
   border: 1px solid color-mix(in srgb, var(--dsr-level-color) 55%, transparent);
   box-shadow: var(--dsw-elevation-panel);
   font-size: 13px; line-height: 1;
-  /* The badge hangs above the marked line's right corner, clear of the text. */
-  transform: translate(0, -100%);
   color: var(--dsw-alias-label-primary);
 }
 .dsr-mark:hover { border-color: var(--dsr-level-color); }
+/* The inline badge hangs above the right corner of the marked line, clear of the text. */
+.dsr-mark--float {
+  position: absolute; pointer-events: auto; transform: translate(0, -100%);
+}
+.dsr-tip {
+  position: fixed; z-index: 6;
+  width: max-content; max-width: min(420px, 50vw);
+  padding: 9px 11px; border-radius: 12px;
+  background: var(--dsw-alias-bg-overlay);
+  box-shadow: var(--dsw-elevation-panel);
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-xs-13, 13px/1.55 system-ui, sans-serif);
+  pointer-events: none;
+}
+.dsr-tip-head { font-size: 11px; color: var(--dsw-alias-label-secondary); margin-bottom: 4px; }
+.dsr-tip-quote {
+  margin: 0 0 6px; padding-left: 8px;
+  border-left: 2px solid var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-secondary);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  white-space: pre-wrap; word-break: break-word;
+}
+.dsr-tip-comment { margin: 0; white-space: pre-wrap; word-break: break-word; }
 /* The host's quote tag is plain inline text (no border or fill); its own hover
    swaps the quote glyph for a close glyph. Keep that language: separate adjacent
    tags, give the text room on the right, and mark hover with a soft fill only. */
@@ -1009,6 +1114,10 @@ window.__ModuleLoader__.load({
   margin: 2px 0 0; color: var(--dsw-alias-label-secondary); font-size: 12.5px;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   white-space: pre-wrap; word-break: break-word;
+}
+.dsrt-quote-inline {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12.5px; color: var(--dsw-alias-label-secondary);
 }
 .dsrt-state { flex: none; margin-left: auto; font-size: 11.5px; color: var(--dsw-alias-label-secondary); }
 .dsrt-comment { margin: 0; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
@@ -1351,6 +1460,13 @@ window.__ModuleLoader__.load({
       useEffect(() => {
         if (!writable) dismiss()
       }, [writable, dismiss])
+
+      // This surface is mounted inside the Chat column; the badge layer is not, so a
+      // badge would be painted over the bar or the card. Hide badges while either is up.
+      useEffect(() => {
+        props.markers.setSuppressed(true)
+        return () => { props.markers.setSuppressed(false) }
+      }, [props.markers])
 
       const buildRecord = (levelValue, commentValue) => {
         const answers = answerTexts(chat.values())
@@ -2653,14 +2769,47 @@ window.__ModuleLoader__.load({
       const signature = unlocated.map(record => record.id).join(',')
 
       // Rebuild underline/badge ranges for this Turn after a reload or a re-render.
+      // The panel switch unmounts the conversation; on return this effect can run
+      // before the answer text is mounted, so retry until the text exists.
       useEffect(() => {
         const targets = records.filter(record => record.sessionId === sessionId
           && record.turn === targetTurn)
-        if (targets.length === 0) return
-        for (const record of targets) {
-          if (markers.has(record.id)) continue
-          const range = findTextRange(targetTurn, record.text)
-          if (range !== null) markers.set(record.id, range, record)
+        if (targets.length === 0) return undefined
+        let cancelled = false
+        let timer = 0
+        let attempts = 0
+        const run = () => {
+          if (cancelled) return
+          let missing = false
+          for (const record of targets) {
+            if (markers.has(record.id)) continue
+            const range = findTextRange(targetTurn, record.text)
+            if (range === null) {
+              missing = true
+              continue
+            }
+            markers.set(record.id, range, record)
+          }
+          if (missing && attempts < 50) {
+            attempts += 1
+            timer = setTimeout(run, attempts < 15 ? 100 : 250)
+          }
+        }
+        run()
+        let observer = null
+        try {
+          const row = document.querySelector(`[data-chat-turn="${targetTurn}"]`)
+          if (row !== null && typeof MutationObserver === 'function') {
+            observer = new MutationObserver(() => { run() })
+            observer.observe(row, { childList: true, subtree: true, characterData: true })
+          }
+        } catch {
+          // The row is not mounted yet; the retry loop still applies.
+        }
+        return () => {
+          cancelled = true
+          clearTimeout(timer)
+          if (observer !== null) observer.disconnect()
         }
       }, [records, sessionId, targetTurn, markers, markerVersion])
 
@@ -2710,7 +2859,10 @@ window.__ModuleLoader__.load({
               },
               h('div', { className: 'dsrt-line' },
                 h('span', { className: 'dsrt-badge', title: t(`level.${record.level}`) }, t(`panel.filter.${record.level}`)),
-                h('span', { className: 'dsrt-spacer' }),
+                h('span', {
+                  className: 'dsrt-quote-inline',
+                  title: record.text,
+                }, t('tail.quote', { text: record.text })),
                 h('button', {
                   type: 'button', className: 'dsrt-requeue', onClick: () => { requeue(record) },
                 }, t('tail.requeue')),
@@ -2724,7 +2876,6 @@ window.__ModuleLoader__.load({
                   },
                 }, t('panel.delete')),
                 h('span', { className: 'dsrt-state' }, formatTime(record.createdAt))),
-              h('p', { className: 'dsrt-quote' }, t('tail.quote', { text: record.text })),
               record.comment === ''
                 ? null
                 : h('p', { className: 'dsrt-comment' }, t('tail.comment', { text: record.comment })))
@@ -2824,7 +2975,8 @@ window.__ModuleLoader__.load({
           })
         }))
 
-        // Frame-wide underline and emoji badge layer.
+        // Selection bar and comment card layer. Badges are hidden while either is open:
+        // this layer lives in the frame overlay, so a badge would always paint on top.
         ctx.slots.inject('shell.overlay', () => ctx.slots.register({
           name: 'shell.overlay',
           id: 'review-marks',

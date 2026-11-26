@@ -1,6 +1,6 @@
 {
   "name": "dsh-result-comments",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "type": "module",
   "description": "Select text in an AI reply, mark it 👍 or with a 🤔 comment, and turn each comment into a tag in the composer that is sent with the user's own message.",
   "license": "MIT",
