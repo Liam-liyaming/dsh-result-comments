@@ -1,0 +1,9 @@
+name = "dsh-result-comments-analytics"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+# Create it once: wrangler kv namespace create COUNTERS
+# then paste the returned id here and deploy with `wrangler deploy`.
+[[kv_namespaces]]
+binding = "COUNTERS"
+id = "c5868220329a4517965f725dd45738cc"

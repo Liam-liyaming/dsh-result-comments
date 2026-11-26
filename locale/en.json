@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "I have a comment",
+    "description": "Select text in an AI reply: tap 👍 to accept it, or tap 🤔 I have a comment to write one. Each comment becomes a removable, hoverable tag in the composer; add several and send them with your own message. The sent message carries the direction, the quoted text and your comment, so the agent and later replays see it. Marked text keeps a coloured underline and an emoji badge that opens the comments panel. The “I have a comment” item in the left sidebar groups local records by session and filters them by direction; records stay in this browser. Anonymous stats are on by default and can be turned off in the panel: only the event type, version, locale and a random install id are sent — never selected text, comments or session data."
+  }
+}
