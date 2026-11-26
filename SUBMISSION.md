@@ -17,7 +17,7 @@
 2. 推送本地仓库：
 
    ```bash
-   git remote add origin git@github.com:<owner>/dsh-result-comments.git
+   git remote add origin git@github.com:Liam-liyaming/dsh-result-comments.git
    git push -u origin main
    ```
 
@@ -25,29 +25,29 @@
 4. 把 `package.json` 加上：
 
    ```json
-   "repository": { "type": "git", "url": "https://github.com/<owner>/dsh-result-comments" },
-   "homepage": "https://github.com/<owner>/dsh-result-comments#readme"
+   "repository": { "type": "git", "url": "https://github.com/Liam-liyaming/dsh-result-comments" },
+   "homepage": "https://github.com/Liam-liyaming/dsh-result-comments#readme"
    ```
 
    然后 `npm version patch`（1.0.1）并发布，让 npm 包与仓库关联；
 5. 等仓库满 1 天后，Fork `awesome-dsh-plugin/awesome-dsh-plugin`；
-6. 新建 `data/plugins/<owner>__dsh-result-comments.yml`：
+6. 新建 `data/plugins/Liam-liyaming__dsh-result-comments.yml`：
 
    ```yaml
-   url: https://github.com/<owner>/dsh-result-comments
-   name: <owner>/dsh-result-comments
+   url: https://github.com/Liam-liyaming/dsh-result-comments
+   name: Liam-liyaming/dsh-result-comments
    category: ui
    description:
      en: 'Select text in an AI reply, mark it 👍 or write a 🤔 comment, and send each comment as a composer tag.'
      zh: '框选 AI 回复中的文字，用 👍 认可或写 🤔 评论，并把评论作为输入框 tag 随消息发送。'
-   icon: https://raw.githubusercontent.com/<owner>/dsh-result-comments/main/assets/icon-180.png
+   icon: https://raw.githubusercontent.com/Liam-liyaming/dsh-result-comments/main/assets/icon-180.png
    ```
 
 7. 提 PR；CI 会检查 `dsh.bundle`、仓库年龄、文件名与 YAML；维护者会读代码核对描述。
 
 ## 注意事项
 
-- 文件名必须由 `url` 推出：`<owner>__dsh-result-comments.yml`；
+- 文件名必须由 `url` 推出：`Liam-liyaming__dsh-result-comments.yml`；
 - `description.en` 必填、单行、以句号结尾；含 `: ` 时要加引号；
 - 分类选最贴近的即可（本插件建议 `ui`，维护者可能微调）；
 - 一个 PR 最多 3 条；
