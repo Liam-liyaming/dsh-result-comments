@@ -22,6 +22,12 @@
    - **选中新文字、浮条出现时**，徽标暂时让位，避免盖住浮条和评论卡片。
    - 「我有话说」面板入口仍在左侧栏，以及每轮末尾的链接。刷新后按「轮次 + 引用文字」重建。
 
+## 截图
+
+![洞察：评论词云、7×24 热力和 8 周趋势](https://raw.githubusercontent.com/Liam-liyaming/dsh-result-comments/main/assets/screenshot-2.png)
+
+![图谱：会话、关键词和标注](https://raw.githubusercontent.com/Liam-liyaming/dsh-result-comments/main/assets/screenshot-3.png)
+
 ## 安装
 
 - 本地目录：DSH → Plugins → Add plugin → 选择本目录（或 `plugin_manager install_bundle`）；
