@@ -4,6 +4,8 @@
 
 源码与问题反馈：[github.com/Liam-liyaming/dsh-result-comments](https://github.com/Liam-liyaming/dsh-result-comments)。
 
+![行内评论变成输入框 tag](https://raw.githubusercontent.com/Liam-liyaming/dsh-result-comments/main/assets/screenshot-1.png)
+
 ## 使用
 
 1. **框选文字**：在 AI 回复里选中一段内容，松开后浮条只给出两个方向：`👍` 和 `🤔 我有话说`。
