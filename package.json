@@ -1,6 +1,6 @@
 {
   "name": "dsh-result-comments",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "type": "module",
   "description": "Select text in an AI reply, mark it 👍 or with a 🤔 comment, and turn each comment into a tag in the composer that is sent with the user's own message.",
   "license": "MIT",
@@ -49,5 +49,8 @@
   "homepage": "https://github.com/Liam-liyaming/dsh-result-comments#readme",
   "bugs": {
     "url": "https://github.com/Liam-liyaming/dsh-result-comments/issues"
+  },
+  "engines": {
+    "dsh": ">=0.2.2-rc.1 <0.3.0"
   }
 }

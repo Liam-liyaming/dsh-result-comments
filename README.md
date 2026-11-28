@@ -32,6 +32,7 @@
 
 - 本地目录：DSH → Plugins → Add plugin → 选择本目录（或 `plugin_manager install_bundle`）；
 - npm 包：`dsh plugin --profile web add dsh-result-comments`；
+- 要求：DSH **0.2.2-rc.1 及以上、0.3.0 以下**（`engines.dsh` 已声明）；
 - 发布后：`plugin_manager install_bundle` 指定 npm 包名 `dsh-result-comments`。
 
 ## 匿名使用统计
